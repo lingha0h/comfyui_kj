@@ -37,7 +37,7 @@ BASE_URL = "https://env-00jxh693vso2.dev-hz.cloudbasefunction.cn"
 UPLOAD_OSS_URL = "/http/ext-storage-co/getUploadFileOptions"
 END_POINT_URL3 = "/kaji-upload-file/uploadFile"  # 改为七牛云扩展存储
 END_POINT_URL1 = "/kaji-upload-file/uploadProduct"  # 云端该接口已废弃，改为下发的/plugin/createOrUpdateProduct
-
+OSS_DOMAIN = "https://kajiai.cn/"
 END_POINT_URL2 = "/get-ws-address/getWsAddress"
 END_POINT_URL_FOR_PRODUCT_1 = "/plugin/getProducts"
 END_POINT_URL_FOR_PRODUCT_2 = "/plugin/createOrUpdateProduct"
@@ -550,39 +550,32 @@ async def process_server_message2(message):
         # print(f"发送进度更新: {progressEvent}")
 
     elif message_type == "executed":
-        # TODO 不是这样拿结果图...
-        # 该任务某个节点执行结束。也就是最后保存结果节点。从中拿到结果。
+        pass
+
+    elif message_type == "execution_success":
         prompt_id = message_json["data"]["prompt_id"]
         kaji_generate_record_id = taskIdDict.pop(prompt_id)
-        filename = message_json["data"]["output"]["images"][0]["filename"]
-        # "filename": "ComfyUI_00031_.png",
-        media_link = await upload_output_image(filename)
-        # 数组问题。还有临时文件（预览）要过滤不要 todo todo
-
-        executedEvent = {
-            "type": "executed_success",
-            "data": {
-                "kaji_generate_record_id": kaji_generate_record_id,
-                "prompt_id": prompt_id,
-                "media_link": media_link,
-                "media_type": "image",
-            },
-        }
-        await wss_c1.send(json.dumps(executedEvent))
-        print(f"结果成功发给服务端: {executedEvent}")
-
-        listeningTasks.discard(kaji_generate_record_id)
-    elif message_type == "execution_success":
+        # 通过history拿结果
+        cur_history_info = await get_history_from_comfyui(prompt_id)
+        # 上传所有结果,获取对应的链接
+        gif_links,image_links = await upload_single_node_output_image(cur_history_info,prompt_id)
+        print(f"任务完成上传gif的链接: {gif_links}")
+        print(f"任务完成上传image的链接: {image_links}")
         # 所有节点完成，该任务也完成。 todo
         executionEvent = {
-            "type": "task_success",
+            "type": "execution_success",
             "data": {
                 "kaji_generate_record_id": kaji_generate_record_id,
                 "prompt_id": prompt_id,
+                "media_data":{
+                    "gifs":gif_links,
+                    "images":image_links
+                }
             },
         }
         await wss_c1.send(json.dumps(executionEvent))
         print(f"任务完成成功发给服务端: {executionEvent}")
+        listeningTasks.discard(kaji_generate_record_id)
 
         pass
     elif message_type == "execution_error" or message_type == "execution_interrupted":
@@ -603,8 +596,39 @@ async def process_server_message2(message):
 
         listeningTasks.discard(kaji_generate_record_id)
 
-    # 可以根据需要添加更多消息类型的处理
 
+async def upload_single_node_output_image(cur_history_info,prompt_id):
+    gif_tasks = []
+    image_tasks = []
+    # 获取特定 prompt_id 对应的 outputs
+    history_entry = cur_history_info.get(prompt_id)
+    if not history_entry or "outputs" not in history_entry:
+        raise ValueError(f"No outputs found for prompt_id: {prompt_id}")
+
+    outputs = history_entry["outputs"]
+
+    for output_value in outputs.values():
+        if "gifs" in output_value:
+            for gif_info in output_value["gifs"]:
+                if gif_info.get("type") != "temp":
+                    filename = gif_info["filename"]
+                    task = upload_output_gifs(filename)
+                    gif_tasks.append(task)
+
+        if "images" in output_value:
+            for image_info in output_value["images"]:
+                if image_info.get("type") != "temp":
+                    filename = image_info["filename"]
+                    task = upload_output_image(filename)
+                    image_tasks.append(task)
+
+    # 并发执行所有上传任务
+    gif_links, image_links = await asyncio.gather(
+        asyncio.gather(*gif_tasks),
+        asyncio.gather(*image_tasks)
+    )
+
+    return list(gif_links), list(image_links)
 
 async def get_wss_server_url():
     async with aiohttp.ClientSession() as session:
@@ -997,48 +1021,72 @@ async def send_prompt_to_comfyui(prompt, workflow=None):
                     f"发送prompt失败，状态码: {response.status}, 错误信息: {error_text}"
                 )
                 return None
+            
 
+async def get_upload_options(session, bizCode, cloudFileName):
+    async with session.get(
+        BASE_URL + UPLOAD_OSS_URL + f"?bizCode={bizCode}&cloudFileName={cloudFileName}"
+    ) as response:
+        if response.status == 200:
+            return await response.json()
+        else:
+            print(f"获取上传配置信息失败，状态码: {response.status}")
+            return None
 
-# 输出图上传专用（其他地方有需要，可抽出公共部分）
-async def upload_output_image(filename):
+async def upload_file_to_oss(session, url, token, key, file_path, filename):
+    with open(file_path, "rb") as file:
+        form_data = aiohttp.FormData()
+        form_data.add_field("file", file, filename=filename)
+        form_data.add_field("token", token)
+        form_data.add_field("key", key)
+        async with session.post(url, data=form_data) as upload_response:
+            try:
+                upload_data = await upload_response.json()
+                print("文件上传成功：", OSS_DOMAIN+upload_data.get("key"))
+                return OSS_DOMAIN+upload_data.get("key")
+            except aiohttp.ClientResponseError as e:
+                print("上传失败", e)
+                return None
+            except json.JSONDecodeError as e:
+                print("解析上传结果失败", e)
+                return None
+
+async def upload_output_image(filename, bizCode="workflow_output"):
     temp_path = os.path.join(media_output_dir, filename)
     if not os.path.exists(temp_path):
         print(f"File does not exist: {temp_path}")
         return None
-    bizCode = "workflow_output"
 
     async with aiohttp.ClientSession() as session:
         cloudFileName = f"{datetime.now().strftime('%s%f')}.png"
-        async with session.get(
-            BASE_URL
-            + UPLOAD_OSS_URL
-            + f"?bizCode={bizCode}&cloudFileName={cloudFileName}"
-        ) as response:
-            if response.status == 200:
-                uploadOptionsRes = await response.json()
-                print("获取上传相关凭证等：", uploadOptionsRes)
-                url = uploadOptionsRes["uploadFileOptions"]["url"]  # 上传地址
-                token = uploadOptionsRes["uploadFileOptions"]["formData"]["token"]
-                key = uploadOptionsRes["uploadFileOptions"]["formData"]["key"]
+        uploadOptionsRes = await get_upload_options(session, bizCode, cloudFileName)
+        if uploadOptionsRes is None:
+            return None
 
-                with open(temp_path, "rb") as file:
-                    # 创建一个类似FormData功能的字典来准备POST请求的数据
-                    form_data = aiohttp.FormData()
-                    form_data.add_field("file", file, filename=filename)
-                    form_data.add_field("token", token)
-                    form_data.add_field("key", key)
-                    async with session.post(url, data=form_data) as upload_response:
-                        try:
-                            upload_data = await upload_response.json()
-                            print("结果图上传成功：", upload_data)
-                            # 处理成功情况
-                            return uploadOptionsRes["fileURL"]
-                        except json.JSONDecodeError as e:
-                            print("解析上传结果失败", e)
-                            return None
-            else:
-                print(f"获取上传配置信息失败，状态码: {response.status}")
-                return None
+        url = uploadOptionsRes["uploadFileOptions"]["url"]
+        token = uploadOptionsRes["uploadFileOptions"]["formData"]["token"]
+        key = uploadOptionsRes["uploadFileOptions"]["formData"]["key"]
+
+        return await upload_file_to_oss(session, url, token, key, temp_path, filename)
+
+async def upload_output_gifs(filename,bizCode="workflow_output"):
+    temp_path = os.path.join(media_output_dir, filename)
+    if not os.path.exists(temp_path):
+        print(f"File does not exist: {temp_path}")
+        return None
+
+    async with aiohttp.ClientSession() as session:
+        # 假设视频文件保持原扩展名
+        cloudFileName = f"{datetime.now().strftime('%s%f')}{os.path.splitext(filename)[1]}"
+        uploadOptionsRes = await get_upload_options(session, bizCode, cloudFileName)
+        if uploadOptionsRes is None:
+            return None
+
+        url = uploadOptionsRes["uploadFileOptions"]["url"]
+        token = uploadOptionsRes["uploadFileOptions"]["formData"]["token"]
+        key = uploadOptionsRes["uploadFileOptions"]["formData"]["key"]
+
+        return await upload_file_to_oss(session, url, token, key, temp_path, filename)
 
 
 def validate_prompt(prompt):
@@ -1099,7 +1147,25 @@ async def run_gc_task_async(task_data):
         logging.error(f"执行任务时发生错误: {str(e)}")
         logging.error("详细错误信息:", exc_info=True)
 
+async def get_history_from_comfyui(prompt_id):
+    comfyui_address = get_comfyui_address()  
 
+    url = f"{comfyui_address}/history/{prompt_id}"  
+    #logging.info(f"尝试从 ComfyUI 获取历史记录: {url}")
+
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url) as response:
+            if response.status == 200:
+                history_data = await response.json()
+                #logging.info(f"成功获取到的历史记录数据: {history_data}")
+                return history_data
+            else:
+                error_text = await response.text()
+                logging.error(
+                    f"获取历史记录失败，状态码: {response.status}, 错误信息: {error_text}"
+                )
+                return None
+            
 async def download_media_async(url, save_dir):
     try:
         async with aiohttp.ClientSession() as session:

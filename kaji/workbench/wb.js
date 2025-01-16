@@ -1884,6 +1884,11 @@ document.head.appendChild(progressStyle); // 修复了变量名错误
 ws.onmessage = (event) => {
     // 包个异步，方便调用getview
     (async () => {
+       //TODO 如果收到Blob消息
+       if (event.data instanceof Blob) {
+            console.log("Received binary data (Blob):", event.data);
+            return
+        }
         const message = JSON.parse(event.data);
         console.log("收到的 WebSocket 消息：", message);
 
