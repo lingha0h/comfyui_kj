@@ -1,0 +1,15 @@
+[project]
+name = "Comfyui_kj"
+description = ""
+version = "1.0.0"
+license = {file = "LICENSE"}
+dependencies = ["aiohttp"]
+
+[project.urls]
+Repository = "https://github.com/XieChengYuan/Comfyui_kj"
+#  Used by Comfy Registry https://comfyregistry.org
+
+[tool.comfy]
+PublisherId = "lingha0h"
+DisplayName = "Comfyui_kj"
+Icon = ""
