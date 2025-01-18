@@ -1,1 +1,1 @@
-# ComfyUI_bxj
+# Comfyui_kj
