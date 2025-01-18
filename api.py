@@ -321,7 +321,7 @@ async def send_heartbeat(websocket):
     while True:
         try:
             # 获取所有工作流id
-            workflow_path = find_plugin_root() + "config/json/workflow"
+            workflow_path = find_plugin_root() + "config/pipeline"
             uniqueids = get_filenames(workflow_path)
 
             payload = {
@@ -738,42 +738,14 @@ async def checkFileIsExits(req):
 async def getWorkflowJson(req):
     # 获取请求数据
     jsonData = await req.json()
-
     # 获取工作流ID参数
     workflow_id = jsonData.get("workflow_id")
     if not workflow_id:
         return web.json_response({"success": False, "errMsg": "工作流ID不能为空"})
-
-    # 构建工作流文件的绝对路径
-    base_dir = os.path.abspath(
-        os.path.join(
-            find_plugin_root(),
-            "config",
-            "json",
-            "workflow",
-        )
-    )
-    abs_file_path = os.path.join(base_dir, f"{workflow_id}.json")
-
-    # 防止路径遍历攻击，确保文件在允许的目录下
-    abs_file_path = os.path.abspath(abs_file_path)
-    if not abs_file_path.startswith(base_dir):
-        return web.json_response({"success": False, "errMsg": "非法的文件路径"})
-
-    # 检查文件是否存在
-    if not os.path.exists(abs_file_path):
-        return web.json_response({"success": False, "errMsg": "工作流文件不存在"})
-
-    # 读取文件内容
-    try:
-        with open(abs_file_path, "r", encoding="utf-8") as f:
-            workflow_data = json.load(f)
-    except Exception as e:
-        return web.json_response(
-            {"success": False, "errMsg": f"读取工作流文件时出错：{str(e)}"}
-        )
-
-    # 返回工作流数据
+   # 直接解析工作流数据返回即可
+    workflow_data = get_workflow(workflow_id)
+    if not workflow_data:
+        return web.json_response({"success": False, "errMsg": "工作流文件不存在或为空"})
     return web.json_response({"success": True, "workflow": workflow_data})
 
 
@@ -828,8 +800,7 @@ async def delete_workflow(req):
             os.path.join(
                 find_plugin_root(),
                 "config",
-                "json",
-                "workflow",
+                "pipeline",
             )
         )
         abs_file_path = os.path.join(base_dir, f"{uniqueid}.json")
@@ -955,30 +926,56 @@ async def kaji_r(req):
         return web.Response(status=500, text="Internal Server Error")
 
 
+#合并output和workflow文件，弄俩个顶级键来合并即可
+def save_merged_data(workflow_data, output_data, file_path):
+    try:
+        # 映射个数据结构
+        combined_data = {
+            "workflow": workflow_data,
+            "output": output_data
+        }
+        os.makedirs(os.path.dirname(file_path), exist_ok=True)
+
+        # 合并后保存
+        with open(file_path, 'w', encoding='utf-8') as f:
+            json.dump(combined_data, f, ensure_ascii=False, indent=4)
+        
+        print(f"工作流文件已成功合并保存为 {file_path}")
+
+    except Exception as e:
+        print(f"工作流文件合并保存发生错误: {e}")
+
+#解析合并文件获取output和workflow信息
+def parse_merged_file(file_path):
+    try:
+        if not os.path.exists(file_path):
+            print(f"工作流文件不存在: {file_path}")
+            return {"workflow": {}, "output": {}}
+
+        with open(file_path, 'r', encoding='utf-8') as f:
+            combined_data = json.load(f)
+
+        # 俩数据直接返回
+        return {
+            "workflow": combined_data.get("workflow", {}),
+            "output": combined_data.get("output", {})
+        }
+    except json.JSONDecodeError as e:
+        print(f"工作流文件解析错误: {e}")
+        return {"workflow": {}, "output": {}}
+    except Exception as e:
+        print(f"读取工作流文件时发生错误: {e}")
+        return {"workflow": {}, "output": {}}
+
 def save_workflow(uniqueid, data):
-    base_path = os.path.join(find_plugin_root(), "config/json/")
-
+    base_path = os.path.join(find_plugin_root(), "config/pipeline/")
     # 检查并创建主目录
-    if not os.path.exists(base_path):
-        os.makedirs(base_path)
+    os.makedirs(base_path, exist_ok=True)
+    #给个文件名
+    combined_file = os.path.join(base_path, f"{uniqueid}.json")
+    #合并保存数据
+    save_merged_data(data.get("workflow", {}), data.get("output", {}), combined_file)
 
-    # 保存 workflow 数据
-    workflow_path = os.path.join(base_path, "workflow")
-    if not os.path.exists(workflow_path):
-        os.makedirs(workflow_path)
-    workflow_file = os.path.join(workflow_path, f"{uniqueid}.json")
-    with open(workflow_file, "w", encoding="utf-8") as f:
-        json.dump(data.get("workflow", {}), f, indent=4, ensure_ascii=False)
-
-    # 保存 output 数据
-    output_path = os.path.join(base_path, "output")
-    if not os.path.exists(output_path):
-        os.makedirs(output_path)
-    output_file = os.path.join(output_path, f"{uniqueid}.json")
-    with open(output_file, "w", encoding="utf-8") as f:
-        json.dump(data.get("output", {}), f, indent=4, ensure_ascii=False)
-
-    print(f"工作流数据已保存: \nWorkflow: {workflow_file}\nOutput: {output_file}")
 
 
 async def task_generate():
@@ -1297,37 +1294,20 @@ async def pre_process_data(kaji_generate_record_id, output):
     except Exception as e:
         print(f"处理数据时发生错误: {e}")
 
-
-def get_output(uniqueid, path="json/output/"):
-    output = read_json_from_file(uniqueid, path, "json")
-    if output is not None:
-        return output
-    return None
-
-
-def get_workflow(uniqueid, path="json/workflow/"):
-    workflow = read_json_from_file(uniqueid, path, "json")
-    if workflow is not None:
-        return {"extra_data": {"extra_pnginfo": {"workflow": workflow}}}
-    return None
+#留这俩函数不改之前调用处的逻辑了
+def get_output(uniqueid, path="config/pipeline/"):
+    base_path = os.path.join(find_plugin_root(), path)
+    combined_file = os.path.join(base_path, f"{uniqueid}.json")
+    parsed_data = parse_merged_file(combined_file)
+    return parsed_data.get("output", {})
 
 
-def read_json_from_file(name, path="json/", type_1="json"):
-    base_url = find_plugin_root() + "config/" + path
-    if not os.path.exists(base_url + name):
-        return None
-    with open(base_url + name, "r") as f:
-        data = f.read()
-        if data == "":
-            return None
-        if type_1 == "json":
-            try:
-                data = json.loads(data)
-                return data
-            except ValueError as e:
-                return None
-        if type_1 == "str":
-            return data
+def get_workflow(uniqueid, path="config/pipeline/"):
+    base_path = os.path.join(find_plugin_root(), path)
+    combined_file = os.path.join(base_path, f"{uniqueid}.json")
+    parsed_data = parse_merged_file(combined_file)
+    return parsed_data.get("workflow", {})
+
 
 
 def find_project_root():

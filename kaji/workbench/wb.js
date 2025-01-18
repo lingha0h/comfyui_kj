@@ -794,7 +794,6 @@ async function uploadSingleImage(file, directory = "kaji/product_medias/product_
 
 // #region 公共组件/函数
 //UUID v4版全球每秒生成10的9次方个UUID，持续生成30亿年，碰撞的概率仍然接近0，远远小于2的122次方的的uuid的理论总数
-const conf_workflow_dir = ".../../config/json/workflow"
 // 工具函数：检查本地文件是否存在
 function generateUUIDv4() {
     const array = new Uint8Array(16);
@@ -2920,7 +2919,7 @@ qrCloseBtn.addEventListener('click', () => {
 async function checkWorkflowFile(work) {
     try {
         // 构造请求数据，传递 uniqueid 对应的文件路径
-        const filePath = `config/json/workflow/${work.uniqueid}.json`;
+        const filePath = `config/pipeline/${work.uniqueid}.json`;
         const data = { file_path: filePath };
 
         // 调用检查文件接口
