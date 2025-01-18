@@ -1902,11 +1902,22 @@ ws.onmessage = (event) => {
 
         if (message.type === 'progress' && message.data) {
             const { value, max } = message.data;
-            const progressPercentage = (value / max) * 100;
+            let progressPercentage = (value / max) * 100;
+
+            // 做个假限制进度最多显示到 90%，在execution_success时再显示100%
+            if (progressPercentage > 90) {
+                progressPercentage = 90;
+            }
 
             // 更新进度条和文字
             progressBar.value = progressPercentage;
             progressText.textContent = `生成中... ${Math.round(progressPercentage)}%`;
+        }
+
+        if (message.type === 'execution_success') {
+            // 设置进度为 100%
+            progressBar.value = 100;
+            progressText.textContent = `生成完成... 100%`;
         }
 
         if (message.type === 'executed' && message.data?.output?.images?.length > 0) {
