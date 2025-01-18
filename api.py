@@ -1258,7 +1258,7 @@ async def deal_recv_generate_data(recv_data):
     form_data = recv_data["formData"]
 
     # 从 uniqueid 加载对应的 output
-    output = get_output(uniqueid + ".json")
+    output = get_output(uniqueid)
 
     # 等待下载所有媒体文件才能生成
     # 下载失败或其他插件端生成异常，如果没有同步到生成失败的状态去退款，可能需要一个统一的超时处理执行退款等炒作
