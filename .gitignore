@@ -4,4 +4,4 @@ __pycache__/
 # Ignore all .pyc files
 *.pyc
 .codegpt
-.config
+config/
