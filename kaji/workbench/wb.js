@@ -1808,7 +1808,18 @@ function updateOutputWithUserInput(output, userInputData) {
             // 更新 inputs 字段
             Object.keys(inputs).forEach(inputKey => {
                 if (userInputData[classType][inputKey] !== undefined) {
-                    inputs[inputKey] = userInputData[classType][inputKey];
+                    if (Array.isArray(userInputData[classType][inputKey])) {
+                        // TODO
+                        if (userInputData[classType][inputKey].length > 0) {
+                            inputs[inputKey] = userInputData[classType][inputKey][0];
+                        } else {
+                            // 处理数组为空的情况
+                            inputs[inputKey] = null;
+                        }
+                    } else {
+
+                        inputs[inputKey] = userInputData[classType][inputKey];
+                    }
                     console.log(`更新节点 ${nodeId} 的 inputs.${inputKey} 为:`, userInputData[classType][inputKey]);
                 }
             });

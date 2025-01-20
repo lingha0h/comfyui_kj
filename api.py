@@ -1198,7 +1198,6 @@ async def download_media_async(url, save_dir):
         return None
 
 
-# TODO 可以改为并发下载所有输入图
 async def download_all_media(form_data):
     download_tasks = []
 
@@ -1208,7 +1207,7 @@ async def download_all_media(form_data):
             url = value["url"]
             download_tasks.append(download_media_async(url, media_save_dir))
 
-    # 等待所有任务完成
+    # 并发等待所有任务完成
     downloaded_paths = await asyncio.gather(*download_tasks)
     return downloaded_paths
 
