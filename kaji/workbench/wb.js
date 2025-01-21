@@ -3143,16 +3143,13 @@ async function processWork(work) {
             confirmDialog(`确认删除${work.title}吗？`, async () => {
                 try {
                     // 构造删除本地文件的请求数据
-                    const filePath1 = `config/json/workflow/${work.uniqueid}.json`;
-                    const filePath2 = `config/json/output/${work.uniqueid}.json`;
-                    const deleteFileData1 = { file_path: filePath1 };
-                    const deleteFileData2 = { file_path: filePath2 };
+                    const filePath = `config/pipeline/${work.uniqueid}.json`;
+                    const deleteFileData = { file_path: filePath };
 
                     // 同时发送删除云端作品和删除本地文件的请求
                     const [deleteProductResponse, deleteFileResponse1, deleteFileResponse2] = await Promise.all([
                         deleteProduct({ product_id: work._id }),
-                        deleteFiles(deleteFileData1),
-                        deleteFiles(deleteFileData2)
+                        deleteFiles(deleteFileData),
                     ]);
 
                     // 检查删除结果
