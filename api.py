@@ -723,10 +723,11 @@ async def checkFileIsExits(req):
     jsonData = await req.json()
 
     # 获取文件路径参数
-    file_path = jsonData.get("file_path")
-    if not file_path:
+    file_name = jsonData.get("file_name")
+    if not file_name:
         return web.json_response({"success": False, "errMsg": "文件路径不能为空"})
-    abs_file_path = os.path.join(find_plugin_root(), file_path)
+    abs_file_path = os.path.join(find_pipeline_path(), file_name)
+    
     # 检查文件是否存在
     file_exists = os.path.exists(abs_file_path)
 
@@ -748,6 +749,10 @@ async def getWorkflowJson(req):
         return web.json_response({"success": False, "errMsg": "工作流文件不存在或为空"})
     return web.json_response({"success": True, "workflow": workflow_data})
 
+def find_pipeline_path():
+    pipeline_path = os.path.join(find_plugin_root(), 'config', 'pipeline')
+    os.makedirs(pipeline_path, exist_ok=True)
+    return pipeline_path
 
 @server.PromptServer.instance.routes.post(END_POINT_DELETE_FILE)
 async def deleteFile(req):
@@ -755,12 +760,12 @@ async def deleteFile(req):
     jsonData = await req.json()
 
     # 获取文件路径参数
-    file_path = jsonData.get("file_path")
-    if not file_path:
+    file_name = jsonData.get("file_name")
+    if not file_name:
         return web.json_response({"success": False, "errMsg": "文件路径不能为空"})
 
-    # 构建绝对文件路径
-    abs_file_path = os.path.abspath(os.path.join(find_plugin_root(), file_path))
+    # 获取冗余文件路径
+    abs_file_path = os.path.abspath(os.path.join(find_pipeline_path(), file_name))
 
     # 检查文件是否存在
     if os.path.exists(abs_file_path):

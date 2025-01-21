@@ -2930,8 +2930,8 @@ qrCloseBtn.addEventListener('click', () => {
 async function checkWorkflowFile(work) {
     try {
         // 构造请求数据，传递 uniqueid 对应的文件路径
-        const filePath = `config/pipeline/${work.uniqueid}.json`;
-        const data = { file_path: filePath };
+        const filePath = `${work.uniqueid}.json`;
+        const data = { file_name: filePath };
 
         // 调用检查文件接口
         const response = await checkFileIsExits(data);
@@ -3143,18 +3143,18 @@ async function processWork(work) {
             confirmDialog(`确认删除${work.title}吗？`, async () => {
                 try {
                     // 构造删除本地文件的请求数据
-                    const filePath = `config/pipeline/${work.uniqueid}.json`;
-                    const deleteFileData = { file_path: filePath };
+                    const filePath = `${work.uniqueid}.json`;
+                    const deleteFileData = { file_name: filePath };
 
                     // 同时发送删除云端作品和删除本地文件的请求
-                    const [deleteProductResponse, deleteFileResponse1, deleteFileResponse2] = await Promise.all([
+                    const [deleteProductResponse, deleteFileResponse] = await Promise.all([
                         deleteProduct({ product_id: work._id }),
                         deleteFiles(deleteFileData),
                     ]);
 
                     // 检查删除结果
                     const productDeleted = deleteProductResponse?.success;
-                    const fileDeleted = deleteFileResponse1?.success && deleteFileResponse2?.success
+                    const fileDeleted = deleteFileResponse?.success;
 
                     if (productDeleted && fileDeleted) {
                         // 云端和本地都成功
