@@ -22,6 +22,7 @@ import platform
 import subprocess
 from datetime import datetime
 import folder_paths
+from pathlib import Path
 
 # 在文件开头设置日志配置
 logging.basicConfig(
@@ -754,6 +755,38 @@ def find_pipeline_path():
     os.makedirs(pipeline_path, exist_ok=True)
     return pipeline_path
 
+#安全验证
+def sanitize_filename(filename):
+    # 1. 去除所有非字母、数字、下划线和点的字符
+    sanitized = re.sub(r'[^A-Za-z0-9_.-]', '', filename)
+    
+    # 2. 确保文件名至少包含一个字符，并且没有连续的点
+    if not sanitized or '..' in sanitized:
+        raise ValueError("Invalid file name")
+    
+    return sanitized
+
+def append_json_extension(filename):
+    if not filename.lower().endswith('.json'):
+        filename += '.json'
+    return filename
+
+def get_abs_file_path(pipeline_path, file_name):
+    sanitized_file_name = sanitize_filename(file_name)
+    sanitized_file_name_with_ext = append_json_extension(sanitized_file_name)
+    
+    # 使用 pathlib.Path 来构建和验证路径
+    pipeline_path_obj = Path(pipeline_path)
+    abs_file_path = (pipeline_path_obj / sanitized_file_name_with_ext).resolve()
+    
+    # 确保生成的路径仍然在 pipeline_path 内
+    try:
+        abs_file_path.relative_to(pipeline_path_obj)
+    except ValueError:
+        raise ValueError("File path traversal detected")
+
+    return str(abs_file_path)
+
 @server.PromptServer.instance.routes.post(END_POINT_DELETE_FILE)
 async def deleteFile(req):
     # 获取请求数据
@@ -765,7 +798,7 @@ async def deleteFile(req):
         return web.json_response({"success": False, "errMsg": "文件路径不能为空"})
 
     # 获取冗余文件路径
-    abs_file_path = os.path.abspath(os.path.join(find_pipeline_path(), file_name))
+    abs_file_path = get_abs_file_path(find_pipeline_path(), file_name)
 
     # 检查文件是否存在
     if os.path.exists(abs_file_path):

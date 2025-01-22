@@ -3143,7 +3143,7 @@ async function processWork(work) {
             confirmDialog(`确认删除${work.title}吗？`, async () => {
                 try {
                     // 构造删除本地文件的请求数据
-                    const filePath = `${work.uniqueid}.json`;
+                    const filePath = `${work.uniqueid}`;
                     const deleteFileData = { file_name: filePath };
 
                     // 同时发送删除云端作品和删除本地文件的请求
