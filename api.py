@@ -24,7 +24,6 @@ from datetime import datetime
 import folder_paths
 from pathlib import Path
 
-# 在文件开头设置日志配置。
 logging.basicConfig(
     level=logging.DEBUG,
     format="%(asctime)s - %(levelname)s - %(module)s:%(lineno)d - %(message)s",
@@ -36,8 +35,8 @@ DEBUG = True
 BASE_URL = "https://env-00jxh693vso2.dev-hz.cloudbasefunction.cn"
 
 UPLOAD_OSS_URL = "/http/ext-storage-co/getUploadFileOptions"
-END_POINT_URL3 = "/kaji-upload-file/uploadFile"  # 改为七牛云扩展存储
-END_POINT_URL1 = "/kaji-upload-file/uploadProduct"  # 云端该接口已废弃，改为下发的/plugin/createOrUpdateProduct
+END_POINT_URL3 = "/kaji-upload-file/uploadFile" 
+END_POINT_URL1 = "/kaji-upload-file/uploadProduct"  
 OSS_DOMAIN = "https://kajiai.cn/"
 END_POINT_URL2 = "/get-ws-address/getWsAddress"
 END_POINT_URL_FOR_PRODUCT_1 = "/plugin/getProducts"
@@ -64,13 +63,13 @@ last_time = None
 RECONNECT_DELAY = 5
 MAX_RECONNECT_ATTEMPTS = 10
 HEART_INTERVAL = 30
-gc_task_queue = asyncio.Queue()  # 改为异步队列
+gc_task_queue = asyncio.Queue()  
 
 taskIdDict = dict()
-listeningTasks = set()  # 用于进度数据的发送控制（量比较大，所以判断一下，减少请求）
+listeningTasks = set()  
 numberDict = dict()
-runningNumber = -1  # 跑的最后一个任务编号。
-queue_size = 0  # 0代表没有任务，机器空闲状态
+runningNumber = -1  
+queue_size = 0  
 
 
 def parse_args():
@@ -151,7 +150,7 @@ def get_machine_unique_id():
             mac_address = uuid.getnode()
             return uuid.UUID(int=mac_address).hex
 
-        elif system == "Darwin":  # macOS
+        elif system == "Darwin": 
             result = subprocess.check_output(
                 ["ioreg", "-rd1", "-c", "IOPlatformExpertDevice"]
             )
@@ -160,7 +159,7 @@ def get_machine_unique_id():
                     return line.split('"')[-2]
             raise ValueError("IOPlatformUUID not found")
 
-        elif system == "Windows":  # Windows
+        elif system == "Windows": 
             result = subprocess.check_output(["wmic", "csproduct", "get", "UUID"])
             return result.decode().split("\n")[1].strip()
 
@@ -500,7 +499,7 @@ async def process_server_message2(message):
                 "type": "update_queue",
                 "data": {"uni_hash": uni_hash, "queue_size": queue_size},
             }
-            await wss_c1.send(json.dumps(queueChangeEvent))  # 发送进度消息
+            await wss_c1.send(json.dumps(queueChangeEvent)) 
             print(f"上个任务完成了，总队列大小发给服务端: {queueChangeEvent}")
     elif message_type == "progress":
         # 某个节点的具体的执行进度，与executing事件对应
@@ -516,7 +515,7 @@ async def process_server_message2(message):
         value = progress_data.get("value")
         max_value = progress_data.get("max")
 
-        current_time = time.time()  # 获取当前时间
+        current_time = time.time() 
         # 计算剩余时间
         if last_value is not None and last_time is not None:
             # 计算时间间隔
@@ -524,14 +523,16 @@ async def process_server_message2(message):
             # 计算进度变化
             value_change = value - last_value
 
-            if value_change > 0:  # 确保进度在增加
+            if value_change > 0:  
                 # 估算总时间
                 estimated_total_time = (max_value / value_change) * time_interval
                 remaining_time = estimated_total_time - (value * time_interval)
             else:
-                remaining_time = 0  # 如果没有进度变化，设置剩余时间为 0
+                 # 如果没有进度变化，设置剩余时间为 0
+                remaining_time = 0 
         else:
-            remaining_time = 0  # 第一次接收进度时，无法计算剩余时间
+            # 第一次接收进度时，无法计算剩余时间
+            remaining_time = 0  
         remaining_time = math.ceil(max(remaining_time, 0))
         # 更新上一个值和时间
         last_value = value
@@ -542,12 +543,12 @@ async def process_server_message2(message):
             "data": {
                 "kaji_generate_record_id": kaji_generate_record_id,
                 "prompt_id": prompt_id,
-                "remaining_time": remaining_time,  # 发送剩余时间
+                "remaining_time": remaining_time,  
                 "value": value,
                 "max_value": max_value,
             },
         }
-        await wss_c1.send(json.dumps(progressEvent))  # 发送进度消息
+        await wss_c1.send(json.dumps(progressEvent))  
         # print(f"发送进度更新: {progressEvent}")
 
     elif message_type == "executed":
@@ -900,7 +901,7 @@ async def kaji_r(req):
         logging.info(f"收到的请求数据: {jsonData}")
 
         # 提取字段
-        uniqueid = jsonData.get("uniqueid")  # 从数据中直接提取 uniqueid
+        uniqueid = jsonData.get("uniqueid") 
         workflow = jsonData.get("workflow")
         output = jsonData.get("output")
 
@@ -1280,7 +1281,7 @@ def update_output_from_form_data(form_data, output, downloaded_paths):
             local_path = downloaded_paths[download_index]
             download_index += 1
             if local_path:
-                current[key_parts[-1]] = os.path.basename(local_path)  # 更新为文件名
+                current[key_parts[-1]] = os.path.basename(local_path)  
             else:
                 logging.error(f"媒体文件下载失败: {value['url']}")
         else:
@@ -1372,7 +1373,7 @@ def thread_run():
 # 线程内使用asyncio管理所有异步任务；队列也改为异步队列 test
 def run_asyncio_in_thread():
     loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)  # 手动绑定事件循环
+    asyncio.set_event_loop(loop)  
     loop.run_until_complete(
         asyncio.gather(
             handle_websocket(1),

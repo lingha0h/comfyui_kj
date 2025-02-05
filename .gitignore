@@ -5,3 +5,9 @@ __pycache__/
 *.pyc
 .codegpt
 config/
+node_modules/
+node.zip
+obfuscate.js
+package-lock.json
+package.json
+remove_comments.py
