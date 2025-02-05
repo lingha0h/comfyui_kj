@@ -10,3 +10,4 @@ node.zip
 obfuscate.js
 package-lock.json
 package.json
+remove_comments.py
