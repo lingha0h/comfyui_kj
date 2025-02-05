@@ -421,7 +421,77 @@ style.textContent += `
         border-color: #67D67D;
         box-shadow: 0 0 8px rgba(92, 184, 92, 0.6);
     }
+    .official-group-button-container {
+        position: absolute;
+        bottom: 50px;
+        left: 40px;
+        display: flex;
+        justify-content: flex-end;
+    }
+    #official-group-button{
+        background-color: white;
+        color: black;
+        border: none;
+        margin-right: 10px;
+        padding: 8px 15px;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+/* 定义二维码容器的样式 */
+#qq-qr-code-container {
+    position: absolute;
+    bottom: 100%; /* 将二维码放在按钮上方 */
+    left: 50%;
+    transform: translateX(-50%);
+    opacity: 0;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    background-color: black; /* 黑色背景 */
+    padding: 20px; /* 内边距 */
+    border-radius: 8px; /* 圆角 */
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* 添加阴影 */
+    border: 2px solid black; /* 添加黑色边框 */
+    width: fit-content; /* 根据内容自动调整宽度 */
+    text-align: center; /* 文本居中 */
+}
 
+/* 定义二维码图片的样式 */
+#qq-qr-code {
+    width: 180px; /* 设置宽度 */
+    height: 180px; /* 设置高度 */
+    border-radius: 8px; /* 圆角 */
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* 添加阴影 */
+}
+
+#text-container {
+    color: white; /* 字体颜色 */
+    font-size: 16px; /* 字体大小 */
+    margin-top: 20px; /* 增加二维码和文本之间的间距 */
+
+}
+
+/* 当鼠标悬停在按钮上时，显示二维码图片 */
+.official-group:hover #qq-qr-code-container {
+    display: block;
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
+
+/* 定义二维码图片从上方滑出的动画 */
+@keyframes slideInFromTop {
+    from {
+        transform: translateX(-50%) translateY(-10px);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(-50%) translateY(0);
+        opacity: 1;
+    }
+}
+
+/* 应用动画 */
+.official-group:hover #qq-qr-code-container {
+    animation: slideInFromTop 0.3s forwards;
+}
 `;
 
 // 帮助提示组件样式
@@ -3313,6 +3383,20 @@ footer.innerHTML = `
     <button id="publish-button" class="glow-button" style="display: none;">发布作品</button>
 `;
 
+const officialGroupButtonContainer = document.createElement('div');
+officialGroupButtonContainer.className = 'official-group-button-container';
+officialGroupButtonContainer.innerHTML = `
+    <div class="official-group">
+        <button id="official-group-button">官方交流群</button>
+        <div id="qq-qr-code-container" style="display: none;">
+            <img id="qq-qr-code" src="kaji/workbench/qq.jpg" alt="QR Code" />
+            <div id="text-container">
+                <span>QQ交流群</span>
+            </div>
+        </div>
+    </div>
+`;
+
 // 挂载所有元素
 const kajiPluginUI = document.getElementById('kaji-plugin-ui');
 kajiPluginUI.appendChild(workbenchButton);
@@ -3323,6 +3407,22 @@ pluginUI.appendChild(panelsContainer);
 pluginUI.appendChild(completeWrapContainer);
 pluginUI.appendChild(workManagementContainer);
 pluginUI.appendChild(footer);
+pluginUI.appendChild(officialGroupButtonContainer);
+
+// 添加事件监听器
+document.getElementById('official-group-button').addEventListener('mouseenter', function() {
+    const qrCodeContainer = document.getElementById('qq-qr-code-container');
+    qrCodeContainer.style.display = 'block';
+    qrCodeContainer.style.opacity = '1';
+});
+
+document.getElementById('official-group-button').addEventListener('mouseleave', function() {
+    const qrCodeContainer = document.getElementById('qq-qr-code-container');
+    qrCodeContainer.style.opacity = '0';
+    setTimeout(() => {
+        qrCodeContainer.style.display = 'none';
+    }, 300); // 等待动画结束再隐藏
+});
 
 // #endregion 主UI其余内容
 
