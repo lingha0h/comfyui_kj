@@ -157,8 +157,8 @@ style.textContent += `
     /* 按钮样式 */
     #workbench-button {
         position: fixed;
-        top: 40px;
-        right: 10px;
+        top: 20px;
+        right: 200px;
         width: 150px;
         height: 40px;
         padding: 8px 16px;
