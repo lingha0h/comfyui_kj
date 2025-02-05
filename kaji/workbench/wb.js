@@ -704,7 +704,18 @@ async function getWss() {
         console.error("建立 WebSocket 连接失败:", error);
     }
 }
-const ws = await getWss();
+
+//terser 解析顶层 await 的问题
+async function initWss() {
+    try {
+        const ws = await getWss();
+        console.log('WebSocket server is running on port 8080:', ws);
+    } catch (error) {
+        console.error('Error initializing WebSocket server:', error);
+    }
+}
+
+initWss();
 
 //请求生图
 async function postPrompt(output) {
