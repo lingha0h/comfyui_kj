@@ -24,7 +24,7 @@ from datetime import datetime
 import folder_paths
 from pathlib import Path
 
-# 在文件开头设置日志配置
+# 在文件开头设置日志配置。
 logging.basicConfig(
     level=logging.DEBUG,
     format="%(asctime)s - %(levelname)s - %(module)s:%(lineno)d - %(message)s",
