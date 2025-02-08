@@ -19,4 +19,4 @@
 - **2025-2-7**: 正式发布版本。
 
 ## 问题反馈
-![联系图片](./kaji/workbench/call.jpg)
+![联系图片](./kaji/workbench/call.png)
