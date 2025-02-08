@@ -6,7 +6,7 @@
 
 ## 使用教程
 
-详细的使用文档请参考以下链接：
+详细的使用文档请点击右侧链接：
 [详细文档](https://i3l25smhpx.feishu.cn/docx/ZGvsduKfYoNbnWxw5sxcy7jknRe?from=from_copylink)
 
 ### 安装方式
