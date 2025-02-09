@@ -1,4 +1,4 @@
-/*咔叽工作台UI内容都放这一个文件里，后面发布时会对这个文件做代码混淆，由于这样会导致文件过长，为方便后期维护用regin/endregin对逻辑分块，可折叠*/
+
 import { api } from '../../../scripts/api.js'
 import { app } from '../../../scripts/app.js'
 
