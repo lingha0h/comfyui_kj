@@ -48,6 +48,7 @@ END_POINT_FILE_IS_EXITS = "/plugin/fileIsExits"
 END_POINT_DELETE_FILE = "/plugin/deleteFiles"
 END_POINT_GET_WORKFLOW = "/plugin/getWorkflow"
 END_POINT_DELETE_WORKFLOW = "/plugin/deleteWorkflowFile"
+END_POINT_MOVE_FILE = "/plugin/uploadInputFile";    
 
 media_save_dir = folder_paths.get_input_directory()
 media_output_dir = folder_paths.get_output_directory()
@@ -745,7 +746,45 @@ async def deleteFile(req):
             )
     else:
         return web.json_response({"success": False, "errMsg": "文件不存在"})
+    
+@server.PromptServer.instance.routes.post(END_POINT_MOVE_FILE)
+async def handle_upload(req):
+    data = await req.post()
+    files = data.getall('files', [])
+    if not files:
+        return web.json_response({"success": False, "errMsg": "没有文件被上传"})
 
+    try:
+        base_dir = os.path.abspath(
+            os.path.join(
+                os.path.dirname(os.path.dirname(os.path.dirname(find_plugin_root()))), 
+                "input"
+            )
+        )
+
+        if not os.path.exists(base_dir):
+            os.makedirs(base_dir)
+
+        results = []
+        for file in files:
+            filename = file.filename
+            abs_file_path = os.path.join(base_dir, filename)
+
+            with open(abs_file_path, 'wb') as f:
+                f.write(file.file.read())
+
+            results.append({
+                "filename": filename,
+                "message": "文件上传成功",
+                "path": abs_file_path
+            })
+
+        return web.json_response({"success": True, "results": results})
+
+    except Exception as e:
+        return web.json_response(
+            {"success": False, "errMsg": f"文件上传时出错：{str(e)}"}
+        )
 
 @server.PromptServer.instance.routes.post(END_POINT_DELETE_WORKFLOW)
 async def delete_workflow(req):
