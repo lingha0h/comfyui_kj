@@ -1,4 +1,4 @@
-/*咔叽工作台UI内容都放这一个文件里，后面发布时会对这个文件做代码混淆，由于这样会导致文件过长，为方便后期维护用regin/endregin对逻辑分块，可折叠*/
+
 import { api } from '../../../scripts/api.js'
 import { app } from '../../../scripts/app.js'
 
@@ -1566,16 +1566,21 @@ function restructureData(inputData) {
         const node = inputData[key];
         const classType = node.class_type;
         const inputs = node.inputs;
-        // 创建一个 class_type 的条目，如果不存在则初始化为一个空对象
-        if (!result.has(classType)) {
-            result.set(classType, {});
+
+        // 创建一个复合键 #key:class_type
+        const compositeKey = `#${key}-${classType}`;
+
+        // 如果该复合键不存在，则初始化为一个空对象
+        if (!result.has(compositeKey)) {
+            result.set(compositeKey, {});
         }
+
         for (let inputKey in inputs) {
             const inputValue = inputs[inputKey];
 
             // 只记录不是数组的项，包含数组的项是link数据
             if (!Array.isArray(inputValue)) {
-                result.get(classType)[inputKey] = inputValue;
+                result.get(compositeKey)[inputKey] = inputValue;
             }
         }
     }
@@ -1590,29 +1595,22 @@ const allObjectInfo = await getObjectInfo()
 function filterObjectInfo(allObjectInfo, filterData) {
     const nodes = [];
 
-    // 遍历所有的 filterData 中的 class_type
-    console.log("filterData", filterData);
-    filterData.forEach((requiredFields, classType) => {
-        // 检查 allObjectInfo 中是否包含该 classType
+    filterData.forEach((requiredFields, compositeKey) => {
+        const [key, classType] = compositeKey.slice(1).split('-'); // 去掉开头的 '#' 并分割
+
         if (allObjectInfo[classType] && allObjectInfo[classType].input) {
             const requiredInputs = allObjectInfo[classType].input.required || {};
             const optionalInputs = allObjectInfo[classType].input.optional || {};
-
-            // 合并 required 和 optional inputs
             const allInputs = { ...requiredInputs, ...optionalInputs };
 
-            // 遍历 requiredFields 中的 key
-            Object.keys(requiredFields).forEach((key) => {
-                // 检查 allInputs 中是否存在该 key
-                if (allInputs[key]) {
-                    // 获取详细信息
-                    const detailInfo = allInputs[key];
-                    const detail = Array.isArray(detailInfo) ? detailInfo : [detailInfo];
-
+            Object.keys(requiredFields).forEach((inputKey) => {
+                if (allInputs[inputKey]) {
+                    const detailInfo = Array.isArray(allInputs[inputKey]) ? allInputs[inputKey] : [allInputs[inputKey]];
+                    
                     nodes.push({
-                        id: `${classType}_${key}`, // 随便标识一下
-                        name: `${classType}:${key}`,
-                        detail: detail
+                        id: `${compositeKey}_${inputKey}`, // 使用复合键生成唯一 ID
+                        name: `${compositeKey}:${inputKey}`,
+                        detail: detailInfo
                     });
                 }
             });
@@ -1883,36 +1881,36 @@ function updateOutputWithUserInput(output, userInputData) {
     Object.keys(updatedOutput).forEach(nodeId => {
         const node = updatedOutput[nodeId];
         const classType = node.class_type;
-
+        const compositeKey = `#${nodeId}-${classType}`;
         // 如果 userInputData 中有对应的 classType
-        if (userInputData[classType]) {
+        if (userInputData[compositeKey]) {
             const inputs = node.inputs || {};
             const optional = node.optional || {};
 
             // 更新 inputs 字段
             Object.keys(inputs).forEach(inputKey => {
-                if (userInputData[classType][inputKey] !== undefined) {
-                    if (Array.isArray(userInputData[classType][inputKey])) {
+                if (userInputData[compositeKey][inputKey] !== undefined) {
+                    if (Array.isArray(userInputData[compositeKey][inputKey])) {
                         // TODO
-                        if (userInputData[classType][inputKey].length > 0) {
-                            inputs[inputKey] = userInputData[classType][inputKey][0];
+                        if (userInputData[compositeKey][inputKey].length > 0) {
+                            inputs[inputKey] = userInputData[compositeKey][inputKey][0];
                         } else {
                             // 处理数组为空的情况
                             inputs[inputKey] = null;
                         }
                     } else {
 
-                        inputs[inputKey] = userInputData[classType][inputKey];
+                        inputs[inputKey] = userInputData[compositeKey][inputKey];
                     }
-                    console.log(`更新节点 ${nodeId} 的 inputs.${inputKey} 为:`, userInputData[classType][inputKey]);
+                    console.log(`更新节点 ${nodeId} 的 inputs.${inputKey} 为:`, userInputData[compositeKey][inputKey]);
                 }
             });
 
             // 更新 optional 字段
             Object.keys(optional).forEach(optionalKey => {
-                if (userInputData[classType][optionalKey] !== undefined) {
-                    optional[optionalKey] = userInputData[classType][optionalKey];
-                    console.log(`更新节点 ${nodeId} 的 optional.${optionalKey} 为:`, userInputData[classType][optionalKey]);
+                if (userInputData[compositeKey][optionalKey] !== undefined) {
+                    optional[optionalKey] = userInputData[compositeKey][optionalKey];
+                    console.log(`更新节点 ${nodeId} 的 optional.${optionalKey} 为:`, userInputData[compositeKey][optionalKey]);
                 }
             });
         }
