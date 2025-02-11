@@ -1294,38 +1294,62 @@ def update_output_from_form_data(form_data, output, downloaded_paths):
     download_index = 0
 
     for key, value in form_data.items():
-        # 分解 key，"KSampler:sampler_name" -> ["KSampler", "sampler_name"]
-        key_parts = key.split(":")
-        if not key_parts:
+        if not key.startswith('#'):
+            logging.warning(f"无效的键格式: {key}，跳过")
             continue
 
-        # 找到对应的 output 项
+        key_parts = key[1:].split('-') 
+        if len(key_parts) < 2:
+            logging.warning(f"无效的键格式: {key}，跳过")
+            continue
+
+        node_id, class_type_and_key = key_parts[0], '-'.join(key_parts[1:])
+        
+        # 分离 class_type 和需要替换的键
+        if ':' in class_type_and_key:
+            class_type, replace_key = class_type_and_key.split(':', 1)
+        else:
+            logging.warning(f"无效的键格式: {key}，缺少 ':' 分隔符，跳过")
+            continue
+
+        logging.debug(f"解析键: {key} -> node_id: {node_id}, class_type: {class_type}, replace_key: {replace_key}")
+
+        # 查找匹配的输出项
         output_item = None
         for output_key, output_value in output.items():
-            if output_value["class_type"] == key_parts[0]:
+            if str(output_key) == node_id and output_value.get("class_type") == class_type:
                 output_item = output_value
                 break
 
         if not output_item:
-            logging.warning(f"未找到匹配的 class_type: {key_parts[0]}，跳过 {key}")
+            logging.warning(f"未找到匹配的 node_id: {node_id} 和 class_type: {class_type}，跳过 {key}")
             continue
+
+        logging.debug(f"找到匹配的输出项: {output_item}")
 
         # 定位到 inputs 部分，根据后续的 key_parts 更新字段
         current = output_item.get("inputs", {})
-        for part in key_parts[1:-1]:
+        input_key_parts = replace_key.split(':')[:-1] 
+
+        for part in input_key_parts:
             current = current.setdefault(part, {})
+
+        logging.debug(f"定位到输入部分: {current}")
 
         # 如果是媒体文件，替换为本地路径
         if isinstance(value, dict) and "url" in value:
             local_path = downloaded_paths[download_index]
             download_index += 1
             if local_path:
-                current[key_parts[-1]] = os.path.basename(local_path)  
+                current[replace_key.split(':')[-1]] = os.path.basename(local_path)
+                logging.info(f"媒体文件下载成功并更新: {local_path}")
             else:
                 logging.error(f"媒体文件下载失败: {value['url']}")
         else:
-            # 直接更新字段
-            current[key_parts[-1]] = value
+            current[replace_key.split(':')[-1]] = value
+            logging.info(f"直接更新字段: {replace_key.split(':')[-1]} = {value}")
+
+    logging.info(f"最终结果: {output}")
 
 
 async def deal_recv_generate_data(recv_data):
