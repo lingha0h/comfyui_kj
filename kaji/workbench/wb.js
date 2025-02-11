@@ -595,59 +595,54 @@ const END_POINT_FILE_IS_EXITS = "/plugin/fileIsExits";                   //文�
 const END_POINT_DELETE_FILE = "/plugin/deleteFiles";                     //删除文件
 const END_POINT_GET_WORKFLOW = "/plugin/getWorkflow";                    //获取工作流数据
 const END_POINT_DELETE_WORKFLOW_FILE = "/plugin/deleteWorkflowFile";     // 删除指定工作流文件接口        
+const END_POINT_MOVE_FILE = "/plugin/uploadInputFile";                         // 图片上传到指定文件内
 
 // 动态处理 HTTP 和 WebSocket 请求
 async function request(endpoint, data = {}, method = 'POST') {
     // WebSocket 请求特殊处理
-    if (endpoint === '/ws') {
-        return connectWebSocket(endpoint, data);
-    }
+    if (endpoint === '/ws') return connectWebSocket(endpoint, data);
 
-    // 从本地缓存中获取 token
-    let token = localStorage.getItem('userToken');
+    const token = localStorage.getItem('userToken');
+    const isFileUpload = data instanceof FormData;
+    const headers = {
+        ...(token && { Authorization: `Bearer ${token}` }),
+        ...(!isFileUpload && { 'Content-Type': 'application/json' })
+    };
 
-    // 处理普通 HTTP 请求，GET暂时没有token
     let url = `${baseUrl}${endpoint}`;
+    let body;
+
     if (method === 'GET' || method === 'HEAD') {
         const queryParams = new URLSearchParams(data).toString();
-        if (queryParams) {
-            url += `?${queryParams}`;
-        }
+        if (queryParams) url += `?${queryParams}`;
+    } else {
+        body = isFileUpload ? data : JSON.stringify({ ...data, token });
     }
 
-    //预留如果token校验在header中
     const options = {
         method,
-        headers: {
-            'Content-Type': 'application/json',
-            ...(token && { Authorization: `Bearer ${token}` }),
-        },
-        ...(method !== 'GET' && method !== 'HEAD' && { body: JSON.stringify({ ...data, token }) }),
+        headers,
+        ...(body !== undefined && { body })
     };
-    console.log("请求url和options: ", url, options);
+
+    console.log("请求配置:", { url, options });
 
     try {
         const response = await fetch(url, options);
 
-        // TODO：如果 token 过期或无效，弹出二维码登录
-        if (!response.ok) {
-            throw new Error(`HTTP error! Status: ${response.status}`);
-        }
+        if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
 
-        // 处理 `/view` 返回的 HTML 格式数据
         if (endpoint === '/view') {
             const blob = await response.blob();
             return URL.createObjectURL(blob);
         }
 
-        // 对于其他请求，继续返回 JSON 数据
         return await response.json();
     } catch (error) {
-        console.error("Request failed:", error);
+        console.error("请求失败:", error);
         throw error;
     }
 }
-
 
 
 // WebSocket
@@ -739,6 +734,12 @@ async function toggleDistribution(data) {
 async function deleteWorkflow(data) {
     const res = await request(END_POINT_DELETE_WORKFLOW_FILE, data);
     console.log('删除作品工作流数据: ', res);
+    return res;
+}
+
+async function moveFile(data) {
+    const res = await request(END_POINT_MOVE_FILE, data);
+    console.log('文件放入input文件夹内: ', res);
     return res;
 }
 
@@ -1356,9 +1357,21 @@ function createUserInput(detail, title) {
         previewContainer = createImagePreviewContainer(userInput);
 
         // 监听文件输入框的变化
-        userInput.addEventListener('change', () => {
-            const files = Array.from(userInput.files).map(file => file.name);
-            userInputData[parentKey][subKey] = files;
+        userInput.addEventListener('change', async() => {
+            const files = Array.from(userInput.files); 
+            userInputData[parentKey][subKey] = files.map(file => file.name); 
+            // 上传文件到后端
+            const formData = new FormData();
+            files.forEach((file) => {
+                formData.append('files', file, file.name); // 使用字段名 'files'
+            });
+
+            try {
+                const res = await moveFile(formData); // 发送 FormData
+                console.log('文件上传成功:', res);
+            } catch (error) {
+                console.error('文件上传失败:', error);
+            }
             console.log('User input data updated:', userInputData);
         });
     } else if (Array.isArray(detail) && Array.isArray(detail[0]) && detail[0].length > 0) {
