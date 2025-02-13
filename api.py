@@ -35,8 +35,8 @@ DEBUG = True
 BASE_URL = "https://env-00jxh693vso2.dev-hz.cloudbasefunction.cn"
 
 UPLOAD_OSS_URL = "/http/ext-storage-co/getUploadFileOptions"
-END_POINT_URL3 = "/kaji-upload-file/uploadFile" 
-END_POINT_URL1 = "/kaji-upload-file/uploadProduct"  
+END_POINT_URL3 = "/kaji-upload-file/uploadFile"
+END_POINT_URL1 = "/kaji-upload-file/uploadProduct"
 OSS_DOMAIN = "https://kajiai.cn/"
 END_POINT_URL2 = "/get-ws-address/getWsAddress"
 END_POINT_URL_FOR_PRODUCT_1 = "/plugin/getProducts"
@@ -48,7 +48,7 @@ END_POINT_FILE_IS_EXITS = "/plugin/fileIsExits"
 END_POINT_DELETE_FILE = "/plugin/deleteFiles"
 END_POINT_GET_WORKFLOW = "/plugin/getWorkflow"
 END_POINT_DELETE_WORKFLOW = "/plugin/deleteWorkflowFile"
-END_POINT_MOVE_FILE = "/plugin/uploadInputFile";    
+END_POINT_MOVE_FILE = "/plugin/uploadInputFile"
 
 media_save_dir = folder_paths.get_input_directory()
 media_output_dir = folder_paths.get_output_directory()
@@ -64,13 +64,13 @@ last_time = None
 RECONNECT_DELAY = 5
 MAX_RECONNECT_ATTEMPTS = 10
 HEART_INTERVAL = 30
-gc_task_queue = asyncio.Queue()  
+gc_task_queue = None
 
 taskIdDict = dict()
-listeningTasks = set()  
+listeningTasks = set()
 numberDict = dict()
-runningNumber = -1  
-queue_size = 0  
+runningNumber = -1
+queue_size = 0
 
 
 def parse_args():
@@ -146,7 +146,7 @@ def get_machine_unique_id():
             mac_address = uuid.getnode()
             return uuid.UUID(int=mac_address).hex
 
-        elif system == "Darwin": 
+        elif system == "Darwin":
             result = subprocess.check_output(
                 ["ioreg", "-rd1", "-c", "IOPlatformExpertDevice"]
             )
@@ -155,7 +155,7 @@ def get_machine_unique_id():
                     return line.split('"')[-2]
             raise ValueError("IOPlatformUUID not found")
 
-        elif system == "Windows": 
+        elif system == "Windows":
             result = subprocess.check_output(["wmic", "csproduct", "get", "UUID"])
             return result.decode().split("\n")[1].strip()
 
@@ -468,7 +468,7 @@ async def process_server_message2(message):
                 "type": "update_queue",
                 "data": {"uni_hash": uni_hash, "queue_size": queue_size},
             }
-            await wss_c1.send(json.dumps(queueChangeEvent)) 
+            await wss_c1.send(json.dumps(queueChangeEvent))
             print(f"上个任务完成了，总队列大小发给服务端: {queueChangeEvent}")
     elif message_type == "progress":
         progress_data = message_json.get("data", {})
@@ -481,18 +481,18 @@ async def process_server_message2(message):
         value = progress_data.get("value")
         max_value = progress_data.get("max")
 
-        current_time = time.time() 
+        current_time = time.time()
         if last_value is not None and last_time is not None:
             time_interval = current_time - last_time
             value_change = value - last_value
 
-            if value_change > 0:  
+            if value_change > 0:
                 estimated_total_time = (max_value / value_change) * time_interval
                 remaining_time = estimated_total_time - (value * time_interval)
             else:
-                remaining_time = 0 
+                remaining_time = 0
         else:
-            remaining_time = 0  
+            remaining_time = 0
         remaining_time = math.ceil(max(remaining_time, 0))
         last_value = value
         last_time = current_time
@@ -502,12 +502,12 @@ async def process_server_message2(message):
             "data": {
                 "kaji_generate_record_id": kaji_generate_record_id,
                 "prompt_id": prompt_id,
-                "remaining_time": remaining_time,  
+                "remaining_time": remaining_time,
                 "value": value,
                 "max_value": max_value,
             },
         }
-        await wss_c1.send(json.dumps(progressEvent))  
+        await wss_c1.send(json.dumps(progressEvent))
 
     elif message_type == "executed":
         pass
@@ -516,7 +516,9 @@ async def process_server_message2(message):
         prompt_id = message_json["data"]["prompt_id"]
         kaji_generate_record_id = taskIdDict.pop(prompt_id)
         cur_history_info = await get_history_from_comfyui(prompt_id)
-        gif_links,image_links = await upload_single_node_output_image(cur_history_info,prompt_id)
+        gif_links, image_links = await upload_single_node_output_image(
+            cur_history_info, prompt_id
+        )
         print(f"任务完成上传gif的链接: {gif_links}")
         print(f"任务完成上传image的链接: {image_links}")
         executionEvent = {
@@ -524,10 +526,7 @@ async def process_server_message2(message):
             "data": {
                 "kaji_generate_record_id": kaji_generate_record_id,
                 "prompt_id": prompt_id,
-                "media_data":{
-                    "gifs":gif_links,
-                    "images":image_links
-                }
+                "media_data": {"gifs": gif_links, "images": image_links},
             },
         }
         await wss_c1.send(json.dumps(executionEvent))
@@ -553,7 +552,7 @@ async def process_server_message2(message):
         listeningTasks.discard(kaji_generate_record_id)
 
 
-async def upload_single_node_output_image(cur_history_info,prompt_id):
+async def upload_single_node_output_image(cur_history_info, prompt_id):
     gif_tasks = []
     image_tasks = []
     history_entry = cur_history_info.get(prompt_id)
@@ -578,11 +577,11 @@ async def upload_single_node_output_image(cur_history_info,prompt_id):
                     image_tasks.append(task)
 
     gif_links, image_links = await asyncio.gather(
-        asyncio.gather(*gif_tasks),
-        asyncio.gather(*image_tasks)
+        asyncio.gather(*gif_tasks), asyncio.gather(*image_tasks)
     )
 
     return list(gif_links), list(image_links)
+
 
 async def get_wss_server_url():
     async with aiohttp.ClientSession() as session:
@@ -677,7 +676,7 @@ async def checkFileIsExits(req):
     if not file_name:
         return web.json_response({"success": False, "errMsg": "文件路径不能为空"})
     abs_file_path = os.path.join(find_pipeline_path(), file_name)
-    
+
     file_exists = os.path.exists(abs_file_path)
 
     return web.json_response({"success": True, "fileExists": file_exists})
@@ -694,37 +693,42 @@ async def getWorkflowJson(req):
         return web.json_response({"success": False, "errMsg": "工作流文件不存在或为空"})
     return web.json_response({"success": True, "workflow": workflow_data})
 
+
 def find_pipeline_path():
-    pipeline_path = os.path.join(find_plugin_root(), 'config', 'pipeline')
+    pipeline_path = os.path.join(find_plugin_root(), "config", "pipeline")
     os.makedirs(pipeline_path, exist_ok=True)
     return pipeline_path
 
+
 def sanitize_filename(filename):
-    sanitized = re.sub(r'[^A-Za-z0-9_.-]', '', filename)
-    
-    if not sanitized or '..' in sanitized:
+    sanitized = re.sub(r"[^A-Za-z0-9_.-]", "", filename)
+
+    if not sanitized or ".." in sanitized:
         raise ValueError("Invalid file name")
-    
+
     return sanitized
 
+
 def append_json_extension(filename):
-    if not filename.lower().endswith('.json'):
-        filename += '.json'
+    if not filename.lower().endswith(".json"):
+        filename += ".json"
     return filename
+
 
 def get_abs_file_path(pipeline_path, file_name):
     sanitized_file_name = sanitize_filename(file_name)
     sanitized_file_name_with_ext = append_json_extension(sanitized_file_name)
-    
+
     pipeline_path_obj = Path(pipeline_path)
     abs_file_path = (pipeline_path_obj / sanitized_file_name_with_ext).resolve()
-    
+
     try:
         abs_file_path.relative_to(pipeline_path_obj)
     except ValueError:
         raise ValueError("File path traversal detected")
 
     return str(abs_file_path)
+
 
 @server.PromptServer.instance.routes.post(END_POINT_DELETE_FILE)
 async def deleteFile(req):
@@ -746,19 +750,20 @@ async def deleteFile(req):
             )
     else:
         return web.json_response({"success": False, "errMsg": "文件不存在"})
-    
+
+
 @server.PromptServer.instance.routes.post(END_POINT_MOVE_FILE)
 async def handle_upload(req):
     data = await req.post()
-    files = data.getall('files', [])
+    files = data.getall("files", [])
     if not files:
         return web.json_response({"success": False, "errMsg": "没有文件被上传"})
 
     try:
         base_dir = os.path.abspath(
             os.path.join(
-                os.path.dirname(os.path.dirname(os.path.dirname(find_plugin_root()))), 
-                "input"
+                os.path.dirname(os.path.dirname(os.path.dirname(find_plugin_root()))),
+                "input",
             )
         )
 
@@ -770,14 +775,12 @@ async def handle_upload(req):
             filename = file.filename
             abs_file_path = os.path.join(base_dir, filename)
 
-            with open(abs_file_path, 'wb') as f:
+            with open(abs_file_path, "wb") as f:
                 f.write(file.file.read())
 
-            results.append({
-                "filename": filename,
-                "message": "文件上传成功",
-                "path": abs_file_path
-            })
+            results.append(
+                {"filename": filename, "message": "文件上传成功", "path": abs_file_path}
+            )
 
         return web.json_response({"success": True, "results": results})
 
@@ -785,6 +788,7 @@ async def handle_upload(req):
         return web.json_response(
             {"success": False, "errMsg": f"文件上传时出错：{str(e)}"}
         )
+
 
 @server.PromptServer.instance.routes.post(END_POINT_DELETE_WORKFLOW)
 async def delete_workflow(req):
@@ -862,7 +866,7 @@ async def kaji_r(req):
         jsonData = await req.json()
         logging.info(f"收到的请求数据: {jsonData}")
 
-        uniqueid = jsonData.get("uniqueid") 
+        uniqueid = jsonData.get("uniqueid")
         workflow = jsonData.get("workflow")
         output = jsonData.get("output")
 
@@ -874,7 +878,6 @@ async def kaji_r(req):
             return web.Response(status=400, text="workflow or output is missing")
 
         newData = reformat(jsonData)
-
 
         async with aiohttp.ClientSession() as session:
             async with session.post(
@@ -920,19 +923,17 @@ async def kaji_r(req):
 
 def save_merged_data(workflow_data, output_data, file_path):
     try:
-        combined_data = {
-            "workflow": workflow_data,
-            "output": output_data
-        }
+        combined_data = {"workflow": workflow_data, "output": output_data}
         os.makedirs(os.path.dirname(file_path), exist_ok=True)
 
-        with open(file_path, 'w', encoding='utf-8') as f:
+        with open(file_path, "w", encoding="utf-8") as f:
             json.dump(combined_data, f, ensure_ascii=False, indent=4)
-        
+
         print(f"工作流文件已成功合并保存为 {file_path}")
 
     except Exception as e:
         print(f"工作流文件合并保存发生错误: {e}")
+
 
 def parse_merged_file(file_path):
     try:
@@ -940,12 +941,12 @@ def parse_merged_file(file_path):
             print(f"工作流文件不存在: {file_path}")
             return {"workflow": {}, "output": {}}
 
-        with open(file_path, 'r', encoding='utf-8') as f:
+        with open(file_path, "r", encoding="utf-8") as f:
             combined_data = json.load(f)
 
         return {
             "workflow": combined_data.get("workflow", {}),
-            "output": combined_data.get("output", {})
+            "output": combined_data.get("output", {}),
         }
     except json.JSONDecodeError as e:
         print(f"工作流文件解析错误: {e}")
@@ -954,12 +955,12 @@ def parse_merged_file(file_path):
         print(f"读取工作流文件时发生错误: {e}")
         return {"workflow": {}, "output": {}}
 
+
 def save_workflow(uniqueid, data):
     base_path = os.path.join(find_plugin_root(), "config/pipeline/")
     os.makedirs(base_path, exist_ok=True)
     combined_file = os.path.join(base_path, f"{uniqueid}.json")
     save_merged_data(data.get("workflow", {}), data.get("output", {}), combined_file)
-
 
 
 async def task_generate():
@@ -997,7 +998,7 @@ async def send_prompt_to_comfyui(prompt, workflow=None):
                     f"发送prompt失败，状态码: {response.status}, 错误信息: {error_text}"
                 )
                 return None
-            
+
 
 async def get_upload_options(session, bizCode, cloudFileName):
     async with session.get(
@@ -1009,6 +1010,7 @@ async def get_upload_options(session, bizCode, cloudFileName):
             print(f"获取上传配置信息失败，状态码: {response.status}")
             return None
 
+
 async def upload_file_to_oss(session, url, token, key, file_path, filename):
     with open(file_path, "rb") as file:
         form_data = aiohttp.FormData()
@@ -1018,14 +1020,15 @@ async def upload_file_to_oss(session, url, token, key, file_path, filename):
         async with session.post(url, data=form_data) as upload_response:
             try:
                 upload_data = await upload_response.json()
-                print("文件上传成功：", OSS_DOMAIN+upload_data.get("key"))
-                return OSS_DOMAIN+upload_data.get("key")
+                print("文件上传成功：", OSS_DOMAIN + upload_data.get("key"))
+                return OSS_DOMAIN + upload_data.get("key")
             except aiohttp.ClientResponseError as e:
                 print("上传失败", e)
                 return None
             except json.JSONDecodeError as e:
                 print("解析上传结果失败", e)
                 return None
+
 
 async def upload_output_image(filename, bizCode="workflow_output"):
     temp_path = os.path.join(media_output_dir, filename)
@@ -1045,14 +1048,17 @@ async def upload_output_image(filename, bizCode="workflow_output"):
 
         return await upload_file_to_oss(session, url, token, key, temp_path, filename)
 
-async def upload_output_gifs(filename,bizCode="workflow_output"):
+
+async def upload_output_gifs(filename, bizCode="workflow_output"):
     temp_path = os.path.join(media_output_dir, filename)
     if not os.path.exists(temp_path):
         print(f"File does not exist: {temp_path}")
         return None
 
     async with aiohttp.ClientSession() as session:
-        cloudFileName = f"{datetime.now().strftime('%s%f')}{os.path.splitext(filename)[1]}"
+        cloudFileName = (
+            f"{datetime.now().strftime('%s%f')}{os.path.splitext(filename)[1]}"
+        )
         uploadOptionsRes = await get_upload_options(session, bizCode, cloudFileName)
         if uploadOptionsRes is None:
             return None
@@ -1119,10 +1125,11 @@ async def run_gc_task_async(task_data):
         logging.error(f"执行任务时发生错误: {str(e)}")
         logging.error("详细错误信息:", exc_info=True)
 
-async def get_history_from_comfyui(prompt_id):
-    comfyui_address = get_comfyui_address()  
 
-    url = f"{comfyui_address}/history/{prompt_id}"  
+async def get_history_from_comfyui(prompt_id):
+    comfyui_address = get_comfyui_address()
+
+    url = f"{comfyui_address}/history/{prompt_id}"
 
     async with aiohttp.ClientSession() as session:
         async with session.get(url) as response:
@@ -1135,7 +1142,8 @@ async def get_history_from_comfyui(prompt_id):
                     f"获取历史记录失败，状态码: {response.status}, 错误信息: {error_text}"
                 )
                 return None
-            
+
+
 async def download_media_async(url, save_dir):
     try:
         async with aiohttp.ClientSession() as session:
@@ -1184,42 +1192,49 @@ def update_output_from_form_data(form_data, output, downloaded_paths):
 
     for key, value in form_data.items():
         # 解析复合键
-        if not key.startswith('#'):
+        if not key.startswith("#"):
             logging.warning(f"无效的键格式: {key}，跳过")
             continue
 
-        key_parts = key[1:].split('-')  # 去掉开头的 '#' 并分割
+        key_parts = key[1:].split("-")  # 去掉开头的 '#' 并分割
         if len(key_parts) < 2:
             logging.warning(f"无效的键格式: {key}，跳过")
             continue
 
-        node_id, class_type_and_key = key_parts[0], '-'.join(key_parts[1:])
-        
+        node_id, class_type_and_key = key_parts[0], "-".join(key_parts[1:])
+
         # 分离 class_type 和需要替换的键
-        if ':' in class_type_and_key:
-            class_type, replace_key = class_type_and_key.split(':', 1)
+        if ":" in class_type_and_key:
+            class_type, replace_key = class_type_and_key.split(":", 1)
         else:
             logging.warning(f"无效的键格式: {key}，缺少 ':' 分隔符，跳过")
             continue
 
-        logging.debug(f"解析键: {key} -> node_id: {node_id}, class_type: {class_type}, replace_key: {replace_key}")
+        logging.debug(
+            f"解析键: {key} -> node_id: {node_id}, class_type: {class_type}, replace_key: {replace_key}"
+        )
 
         # 查找匹配的输出项
         output_item = None
         for output_key, output_value in output.items():
-            if str(output_key) == node_id and output_value.get("class_type") == class_type:
+            if (
+                str(output_key) == node_id
+                and output_value.get("class_type") == class_type
+            ):
                 output_item = output_value
                 break
 
         if not output_item:
-            logging.warning(f"未找到匹配的 node_id: {node_id} 和 class_type: {class_type}，跳过 {key}")
+            logging.warning(
+                f"未找到匹配的 node_id: {node_id} 和 class_type: {class_type}，跳过 {key}"
+            )
             continue
 
         logging.debug(f"找到匹配的输出项: {output_item}")
 
         # 定位到 inputs 部分，根据后续的 key_parts 更新字段
         current = output_item.get("inputs", {})
-        input_key_parts = replace_key.split(':')[:-1]  # 如果有嵌套结构，则处理嵌套部分
+        input_key_parts = replace_key.split(":")[:-1]  # 如果有嵌套结构，则处理嵌套部分
 
         for part in input_key_parts:
             current = current.setdefault(part, {})
@@ -1231,17 +1246,16 @@ def update_output_from_form_data(form_data, output, downloaded_paths):
             local_path = downloaded_paths[download_index]
             download_index += 1
             if local_path:
-                current[replace_key.split(':')[-1]] = os.path.basename(local_path)
+                current[replace_key.split(":")[-1]] = os.path.basename(local_path)
                 logging.info(f"媒体文件下载成功并更新: {local_path}")
             else:
                 logging.error(f"媒体文件下载失败: {value['url']}")
         else:
             # 直接更新字段
-            current[replace_key.split(':')[-1]] = value
+            current[replace_key.split(":")[-1]] = value
             logging.info(f"直接更新字段: {replace_key.split(':')[-1]} = {value}")
 
     logging.info(f"最终结果: {output}")
-
 
 
 async def deal_recv_generate_data(recv_data):
@@ -1274,6 +1288,7 @@ async def pre_process_data(kaji_generate_record_id, output):
     except Exception as e:
         print(f"处理数据时发生错误: {e}")
 
+
 def get_output(uniqueid, path="config/pipeline/"):
     base_path = os.path.join(find_plugin_root(), path)
     combined_file = os.path.join(base_path, f"{uniqueid}.json")
@@ -1286,7 +1301,6 @@ def get_workflow(uniqueid, path="config/pipeline/"):
     combined_file = os.path.join(base_path, f"{uniqueid}.json")
     parsed_data = parse_merged_file(combined_file)
     return parsed_data.get("workflow", {})
-
 
 
 def find_project_root():
@@ -1312,7 +1326,9 @@ def thread_run():
 
 def run_asyncio_in_thread():
     loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)  
+    asyncio.set_event_loop(loop)
+    global gc_task_queue
+    gc_task_queue = asyncio.Queue()
     loop.run_until_complete(
         asyncio.gather(
             handle_websocket(1),
