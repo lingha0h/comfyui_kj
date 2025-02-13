@@ -3344,14 +3344,19 @@ async function loadWorks() {
 
     if (!token) {
         console.error('未获取到有效 token，请先登录！');
-        fetchTicketAndShowQRCode(); // 显示二维码重新登录
+        fetchTicketAndShowQRCode();
         return;
     }
     showLoading()
     const res = await request(END_POINT_URL_FOR_PRODUCT_1, {token:token});
     console.log('收到的作品数据: ', res);
     const works = res?.data || [];
-
+    if (res.code === -1 && res.msg === 'token过期了') {
+        console.error('token过期了，请重新登录！');
+        fetchTicketAndShowQRCode(); 
+        hideLoading();
+        return;
+    }
     if (works.length === 0) {
         const emptyContent = document.createElement('div');
         emptyContent.className = 'empty-content';
