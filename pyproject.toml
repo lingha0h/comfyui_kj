@@ -1,7 +1,7 @@
 [project]
 name = "comfyui_kj"
 description = "comfyui_kj, A tool that can package workflows into projects and publish them to a WeChat Mini Program named Kaji, allowing charges to be collected from users."
-version = "1.0.8"
+version = "1.0.9"
 license = {file = "LICENSE"}
 dependencies = ["aiohttp"]
 
