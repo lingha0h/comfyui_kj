@@ -59,6 +59,8 @@ async function loadPluginUI() {
     }
 }
 
-
-loadPluginUI();
+setTimeout(() => {
+    console.log("初始化咔叽UI");
+    loadPluginUI();
+}, 1000);
 
