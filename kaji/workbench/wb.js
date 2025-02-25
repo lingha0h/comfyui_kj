@@ -3763,7 +3763,7 @@ async function publishProduct(isModify) {
     } catch (error) {
         console.error('发布作品过程中出错:', error);
         hideLoading(); // 隐藏加载框
-        confirmDialog('发布作品时发生错误，请检查网络或稍后重试。', null, true);
+        confirmDialog('发布作品时发生错误，请检查是否有违规项或者登录过期。', null, true);
     }finally {
         hideLoading(); 
     }
