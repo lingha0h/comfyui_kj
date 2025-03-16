@@ -579,6 +579,7 @@ const hostname = window.location.hostname; // 获取主机名
 const port = window.location.port;         // 获取端口号
 const protocol = window.location.protocol; // 获取协议
 const baseUrl = port ? `${protocol}//${hostname}:${port}` : `${protocol}//${hostname}`;
+const wssBaseUrl = port ? `wss://${hostname}:${port}` : `wss://${hostname}`;
 const wsBaseUrl = port ? `ws://${hostname}:${port}` : `ws://${hostname}`;
 
 
@@ -600,8 +601,11 @@ const END_POINT_MOVE_FILE = "/plugin/uploadInputFile";                         /
 // 动态处理 HTTP 和 WebSocket 请求
 async function request(endpoint, data = {}, method = 'POST') {
     // WebSocket 请求特殊处理
-    if (endpoint === '/ws') return connectWebSocket(endpoint, data);
-
+    if (endpoint === '/ws') {
+        const wsUrl = `${wsBaseUrl}${endpoint}?${new URLSearchParams(data).toString()}`;
+        console.log("Connecting to WebSocket:", wsUrl);
+        return connectWebSocket(wsUrl,data);
+    }
     const token = localStorage.getItem('userToken');
     const isFileUpload = data instanceof FormData;
     const headers = {
@@ -646,24 +650,36 @@ async function request(endpoint, data = {}, method = 'POST') {
 
 
 // WebSocket
-function connectWebSocket(endpoint, data) {
-    const wsUrl = `${wsBaseUrl}${endpoint}?${new URLSearchParams(data).toString()}`;
-    console.log("Connecting to WebSocket:", wsUrl);
+function connectWebSocket(url, data) {
+    const wssUrl = `${wssBaseUrl}${'/ws'}?${new URLSearchParams(data).toString()}`;
 
-    const ws = new WebSocket(wsUrl);
+    let ws;
+    function attemptConnection(currentUrl) {
+        try {
+            ws = new WebSocket(currentUrl);
 
-    ws.onopen = () => {
-        console.log("WebSocket connected");
-    };
+            ws.onopen = () => {
+                console.log(`WebSocket connected to ${currentUrl}`);
+            };
 
-    ws.onerror = (error) => {
-        console.error("WebSocket error:", error);
-    };
+            ws.onerror = (error) => {
+                console.error(`WebSocket error on ${currentUrl}:`, error);
+            };
 
-    ws.onclose = (event) => {
-        console.warn(`WebSocket closed: code=${event.code}, reason=${event.reason}`);
-    };
+            ws.onclose = (event) => {
+                console.warn(`WebSocket closed on ${currentUrl}: code=${event.code}, reason=${event.reason}`);
+            };
+        } catch (err) {
+            console.error(`Exception when creating WebSocket for ${currentUrl}:`, err);
+            if (currentUrl !== wssUrl) {
+                attemptConnection(wssUrl);
+            } else {
+                console.error('Both connections failed.');
+            }
+        }
+    }
 
+    attemptConnection(url);
     return ws;
 }
 
