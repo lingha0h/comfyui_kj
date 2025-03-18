@@ -147,17 +147,29 @@ def get_machine_unique_id():
             return uuid.UUID(int=mac_address).hex
 
         elif system == "Darwin":
-            result = subprocess.check_output(
-                ["ioreg", "-rd1", "-c", "IOPlatformExpertDevice"]
-            )
-            for line in result.decode().split("\n"):
-                if "IOPlatformUUID" in line:
-                    return line.split('"')[-2]
-            raise ValueError("IOPlatformUUID not found")
+            try:
+                result = subprocess.check_output(
+                    ["ioreg", "-rd1", "-c", "IOPlatformExpertDevice"]
+                ).decode()
+                for line in result.split("\n"):
+                    if "IOPlatformUUID" in line:
+                        return line.split('"')[-2]  
+                raise ValueError("IOPlatformUUID not found")
+            except subprocess.CalledProcessError as e:
+                print(f"Failed to retrieve IOPlatformUUID: {e}")
+
+            mac_address = uuid.getnode()
+            return uuid.UUID(int=mac_address).hex
 
         elif system == "Windows":
-            result = subprocess.check_output(["wmic", "csproduct", "get", "UUID"])
-            return result.decode().split("\n")[1].strip()
+            try:
+                result = subprocess.check_output(["wmic", "csproduct", "get", "UUID"])
+                return result.decode().split("\n")[1].strip()
+            except (subprocess.CalledProcessError, FileNotFoundError, IndexError):
+                pass
+
+            mac_address = uuid.getnode()
+            return uuid.UUID(int=mac_address).hex
 
         else:
             raise ValueError("Unsupported platform")
