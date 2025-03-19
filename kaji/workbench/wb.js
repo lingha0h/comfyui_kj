@@ -1254,8 +1254,8 @@ function publishOptionDialog(message, onNewPublish, onModifyPublish) {
 
 
 //全局来记录用户输入
-const userInputData = {}
-const formMetaData = {}
+let userInputData = {}
+let formMetaData = {}
 
 function createUserInputFormComponent(title, detail, inputField) {
     const userInputFormContainer = document.querySelector('.user-input-form-container');
@@ -1603,10 +1603,10 @@ function restructureData(inputData) {
 
     return result;
 }
-const fliterData = restructureData(output)
+let fliterData = restructureData(output)
 console.log("节点过滤数据：", fliterData)
 //获取系统中所有节点对应参数，供表单使用，上面工作流信息只包含当前已选参数，手动过滤
-const allObjectInfo = await getObjectInfo()
+let allObjectInfo = await getObjectInfo()
 //重构数据对应表单输入,只考虑可交互数据，link数据不考虑（这里将input内包含二项数组的视为连接数据）
 function filterObjectInfo(allObjectInfo, filterData) {
     const nodes = [];
@@ -1636,7 +1636,7 @@ function filterObjectInfo(allObjectInfo, filterData) {
     return nodes;
 }
 
-const nodes = filterObjectInfo(allObjectInfo, fliterData)
+let nodes = filterObjectInfo(allObjectInfo, fliterData)
 console.log("获取可控制输入的节点", nodes)
 
 //----------------------------------------------------------------------------------------------
@@ -1663,9 +1663,7 @@ productInfo.innerHTML = `
                 transition: all 0.3s ease;
             ">
 
-            <div id="dropdown" style="position: absolute; top: 100%; left: 0; width: 100%; max-height: 200px; overflow-y: auto; background: #333; color: #fff; border: 1px solid #555; border-radius: 4px; display: none; z-index: 99999;">
-                ${nodes.map(node => `<div class="dropdown-item" data-value="${node.id}" style="padding: 8px; cursor: pointer;">${node.name}</div>`).join('')}
-            </div>
+            <div id="dropdown" style="position: absolute; top: 100%; left: 0; width: 100%; max-height: 200px; overflow-y: auto; background: #333; color: #fff; border: 1px solid #555; border-radius: 4px; display: none; z-index: 99999;"></div>
         </div>
     </div>
     <div id="svg-contains" style="display: flex; justify-content: center; align-items: center; margin-top: 130px;">
@@ -1675,6 +1673,26 @@ productInfo.innerHTML = `
         右侧实时预览用户输入表单
     </p>
 `;
+
+let dropdownItems
+// 更新 dropdown 部分的函数
+function renderDropdown() {
+    console.log('Rendering dropdown with nodes:', nodes); // 调试信息
+
+    dropdownItems = nodes.map(node => `
+        <div class="dropdown-item" data-value="${node.id}" style="padding: 8px; cursor: pointer;">${node.name}</div>
+    `).join('');
+
+    // 找到 dropdown 元素并更新其内容
+    const dropdownElement = productInfo.querySelector('#dropdown');
+    if (dropdownElement) {
+        dropdownElement.innerHTML = dropdownItems;
+    } else {
+        console.error('Dropdown element not found.');
+    }
+}
+// 初始渲染 dropdown
+renderDropdown();
 
 const title = productInfo.querySelector('h3');
 title.appendChild(createTooltip('可将工作流中的节点参数封装为作品的输入信息，包括文本、图片、视频等'));
@@ -1693,7 +1711,6 @@ document.body.appendChild(productInfo);
 // 获取搜索输入框和下拉菜单
 const searchInput = productInfo.querySelector('#search-input');
 const dropdown = productInfo.querySelector('#dropdown');
-const dropdownItems = productInfo.querySelectorAll('.dropdown-item');
 const svgContains = productInfo.querySelector('#svg-contains');
 
 // 显示或隐藏下拉菜单
@@ -1720,10 +1737,11 @@ searchInput.addEventListener('input', (event) => {
     });
 });
 
-// 选择下拉项
-dropdownItems.forEach(item => {
-    item.addEventListener('click', (event) => {
-        const selectedNodeId = event.target.dataset.value;
+// 使用事件委托绑定 dropdown-item 的点击事件
+productInfo.addEventListener('click', function(event) {
+    const dropdownItem = event.target.closest('.dropdown-item');
+    if (dropdownItem) {
+        const selectedNodeId = dropdownItem.dataset.value;
         const selectedNode = nodes.find(node => node.id === selectedNodeId);
 
         if (selectedNode) {
@@ -1757,7 +1775,7 @@ dropdownItems.forEach(item => {
 
             inputField.addEventListener('focus', () => {
                 inputField.style.borderColor = '#5CB85C'; // 绿色边框
-                inputField.style.boxShadow = 'inset 2px 2px 5px rgba(0, 0, 0, 0.3), 3px 3px 8px rgba(92, 184, 92, 0.5)';
+                inputField.style.boxShadow = 'inset 2px 2px 5px rgba(0, 0, 0, 0.3), 3px 3px 5px rgba(92, 184, 92, 0.5)';
             });
 
             inputField.addEventListener('blur', () => {
@@ -1768,10 +1786,12 @@ dropdownItems.forEach(item => {
             nodeComponent.innerHTML = `
                 <div style="display: flex; justify-content: space-between; align-items: center; padding: 5px 0px;">
                     <div style="display: flex; align-items: center; gap: 2px;">
+                        <!-- 假设 nodeSvgCode 是一个已定义的变量 -->
                         ${nodeSvgCode}
                         <span style="font-size: 1.0rem; font-weight: 500; color: #dcdcdc;">${selectedNode.name}</span>
                     </div>
                     <button class="delete-button" style="background: none; border: none; cursor: pointer; padding: 0 8px; border-radius: 50%; transition: transform 0.2s ease;">
+                        <!-- 假设 deleteSvgCode 是一个已定义的变量 -->
                         ${deleteSvgCode}
                     </button>
                 </div>
@@ -1846,7 +1866,7 @@ dropdownItems.forEach(item => {
             // 隐藏提示文本
             svgContains.style.display = 'none';
         }
-    });
+    }
 });
 
 // 删除用户输入表单中的同步组件
@@ -3852,6 +3872,11 @@ workbenchButton.addEventListener('mousedown', async(e) => {
     output = graphPrompt.output;
     console.log("update graphToPrompt output:", output)
     workflow = graphPrompt.workflow;
+    fliterData = restructureData(output)
+    allObjectInfo = await getObjectInfo()
+    nodes = filterObjectInfo(allObjectInfo, fliterData)
+    console.log("获取可控制输入的节点", nodes)
+    renderDropdown()
 });
 
 document.addEventListener('mousemove', (e) => {
