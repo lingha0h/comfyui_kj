@@ -852,7 +852,13 @@ async def get_upload_token(req):
             return web.json_response({"success": False, "errMsg": "文件名缺少扩展名"})
 
         biz_code = "product_images"
-        cloud_file_name = f"{datetime.now().strftime('%s%f')}{file_extension}"
+        # cloud_file_name = f"{datetime.now().strftime('%s%f')}{file_extension}"
+
+        now = datetime.now()
+        timestamp = int(now.timestamp())  # 获取 Unix 时间戳
+        microseconds = now.microsecond  # 获取微秒
+        # 生成文件名
+        cloud_file_name = f"{timestamp}{microseconds}{file_extension}"
 
         async with aiohttp.ClientSession() as session:
             async with session.get(
