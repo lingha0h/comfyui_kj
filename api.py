@@ -1053,9 +1053,14 @@ async def upload_file_to_oss(session, url, token, key, file_path, filename):
                 print("解析上传结果失败", e)
                 return None
 
+async def find_file(directory, target_filename):
+    for root, dirs, files in os.walk(directory):
+        if target_filename in files:
+            return os.path.join(root, target_filename)
+    return None
 
 async def upload_output_image(filename, bizCode="workflow_output"):
-    temp_path = os.path.join(media_output_dir, filename)
+    temp_path = await find_file(media_output_dir, filename)
     if not os.path.exists(temp_path):
         print(f"File does not exist: {temp_path}")
         return None
@@ -1074,7 +1079,7 @@ async def upload_output_image(filename, bizCode="workflow_output"):
 
 
 async def upload_output_gifs(filename, bizCode="workflow_output"):
-    temp_path = os.path.join(media_output_dir, filename)
+    temp_path = await find_file(media_output_dir, filename)
     if not os.path.exists(temp_path):
         print(f"File does not exist: {temp_path}")
         return None
