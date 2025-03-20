@@ -837,6 +837,12 @@ async def delete_workflow(req):
             {"success": False, "errMsg": f"删除工作流时出错：{str(e)}"}
         )
 
+# 统一获取一个时间戳当作文件名
+def getUniFileName():
+    now = datetime.now()
+    timestamp = int(now.timestamp())  # 获取 Unix 时间戳
+    microseconds = now.microsecond  # 获取微秒
+    return f"{timestamp}{microseconds}"
 
 @server.PromptServer.instance.routes.post("/get-upload-token")
 async def get_upload_token(req):
@@ -858,7 +864,7 @@ async def get_upload_token(req):
         timestamp = int(now.timestamp())  # 获取 Unix 时间戳
         microseconds = now.microsecond  # 获取微秒
         # 生成文件名
-        cloud_file_name = f"{timestamp}{microseconds}{file_extension}"
+        cloud_file_name = f"{getUniFileName()}{file_extension}"
 
         async with aiohttp.ClientSession() as session:
             async with session.get(
@@ -1055,7 +1061,7 @@ async def upload_output_image(filename, bizCode="workflow_output"):
         return None
 
     async with aiohttp.ClientSession() as session:
-        cloudFileName = f"{datetime.now().strftime('%s%f')}.png"
+        cloudFileName = f"{getUniFileName()}.png"
         uploadOptionsRes = await get_upload_options(session, bizCode, cloudFileName)
         if uploadOptionsRes is None:
             return None
@@ -1075,7 +1081,7 @@ async def upload_output_gifs(filename, bizCode="workflow_output"):
 
     async with aiohttp.ClientSession() as session:
         cloudFileName = (
-            f"{datetime.now().strftime('%s%f')}{os.path.splitext(filename)[1]}"
+            f"{getUniFileName()}{os.path.splitext(filename)[1]}"
         )
         uploadOptionsRes = await get_upload_options(session, bizCode, cloudFileName)
         if uploadOptionsRes is None:
